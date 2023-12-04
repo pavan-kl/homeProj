@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 ###### >>>>>>>>>>>> Configuration Begins #####
 ## Define all configurations in this section. 
-## the logic is made extensible such that you can add new vehicles in the future 
+## the logic is made extensible such that you can add new vehicles in the future
+## without changing code. you have to edit the existing configurations for the new vehicle type.
 
 # Kafka configurations
 bootstrap_servers = 'localhost:9092'
