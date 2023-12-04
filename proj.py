@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 ###### >>>>>>>>>>>> Configuration Begins #####
 ## Define all configurations in this section. 
+## the logic is made extensible such that you can add new vehicles in the future 
 
 # Kafka configurations
 bootstrap_servers = 'localhost:9092'
@@ -18,11 +19,11 @@ num_partitions = 3  # 3 partitions for incoming traffic
 # configure time window in mins
 timeMinsWindow = 5
 
-# limits to be specified. we can add new vehicle here in the future, eg: minivan:20
+# min limits to be specified. we can add new vehicle here in the future, eg: minivan:20
 # the program will derive other parameters based on this declaration
 vehicleLimits = { 'bike': 15, 'car': 60, 'truck': 25 }
 
-# exit time limits of each of the vehicle
+# exit time limits of each of the vehicle in minutes
 exitTimes = { 'bike': [30, 59], 'car': [20, 39], 'truck' : [30, 59]}
 
 #### Configuration Ends ###### <<<<<<<<<<<<<<<<<<<<<<<<
