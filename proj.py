@@ -143,6 +143,8 @@ def shouldProcessPartition(type_count, msg):
         
     return False # defer processing
 
+# keeps printing the stats of the vehicles which have crossed the gate of toll plaza
+# every minute
 def reporter():
 
     # run forever
@@ -156,6 +158,7 @@ def reporter():
                 print(f"[{vehicle}, 0, 0]")
         time.sleep(60)
 
+# ingresses the vehicle into the toll plaza
 def ingressVehicle(vehicle):
     exitTime = exitTimes[vehicle['type']]
     #randomize the egress times for the vehicles, by choosing between the given times
@@ -163,6 +166,7 @@ def ingressVehicle(vehicle):
                             datetime.timedelta(minutes=random(exitTime[0], exitTime[1])))
     vehicleQueue[vehicle['type']].append(vehicle)   
 
+# consume Messages based on the rate limit set
 def consumeMessages(consumer):
     consumer = KafkaConsumer(incomingTrafficTopic, bootstrap_servers=bootstrap_servers, group_id='toll_plaza')
     
@@ -182,6 +186,7 @@ def consumeMessages(consumer):
             # Get the partition of the message
             partition = msg.partition()
 
+            # should the partition be processed for the vehicle type
             if not shouldProcessPartition(partition, msg):
                 print(f"Deferring consumption for partition {partition}")
                 time.sleep(1)
@@ -195,7 +200,16 @@ def consumeMessages(consumer):
     finally:
         consumer.close()
 
-
+# egress vehicle from the toll plaza and add it to the exit traffic
+def egressVehicle(producer, vehicle):
+    producer.produce(
+        topic=exitTrafficTopic,
+        key=vehicle['number'],  # vehicle number as the key 
+        value=f'"type": {vehicle["type"]}, "number": {vehicle["number"]},
+                "ingressTime":{vehicle["ingressTime"]}, "egressTime":{vehicle["egressTime"]}')
+    
+# egresses vehicle from exitTrafficTopic, i.e after coming out of the toll plaza
+# runs forever to exit the vehicles
 def egressConsumer():
     consumer = KafkaConsumer (exitTrafficTopic, group_id ='group1',bootstrap_servers =
                                 bootstrap_servers)
@@ -211,14 +225,8 @@ def egressConsumer():
     finally:
         consumer.close()
 
-def egressVehicle(producer, vehicle):
-    producer.produce(
-        topic=exitTrafficTopic,
-        key=vehicle['number'],  # vehicle number as the key 
-        value=f'"type": {vehicle["type"]}, "number": {vehicle["number"]},
-                "ingressTime":{vehicle["ingressTime"]}, "egressTime":{vehicle["egressTime"]}')
-    
-
+# this exits traffic from the toll plaza stretch and onto the exitTrafficTopic
+# we already have vehicles which are on the toll plaza stretch in the vehicleQueue 
 def exitTraffic() :
     
     producer = KafkaProducer(bootstrap_servers=bootstrap_servers)
@@ -239,23 +247,30 @@ def exitTraffic() :
 
 if __name__ == "__main__":
 
+    # derive other constructs based on the vehicle limits specified
     for vehicle in vehicleLimits:
         vehicleTypes.append(vehicle)
         incomingVehicleCount[vehicle]=0
         vehicleQueue[vehicle] = []       
 
+    # produce vehicle traffic on the toll plaza stretch
     producerThread = threading.Thread(target=produceMessages)
     producerThread.start()    
-        
+
+    # ingress vehicle traffic on the toll plaza stretch
     consumerThread = threading.Thread(target=consumeMessages)
     consumerThread.start()
 
+    # log reporter for the toll plaza stretch for every min
     reporterThread = threading.Thread(target=reporter)
     reporterThread.start()
 
+    # egress vehicles from the toll plaza stretch based on randomized exit times specified
+    # and move them on to the exit traffic topic
     exitThread = threading.Thread(target=exitTraffic)
     exitThread.start()
-    
+
+    # exit traffic altogether & report the ingress/egress time of each vehicle
     egressConsumerThread = threading.Thread(target=egressConsumer)
     egressConsumerThread.start()
 
